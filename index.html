@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TradingView Multi-Chart Dashboard</title>
+  <style>
+    body {
+      background: #181a20;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+    .left {
+      width: 40%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      border-right: 2px solid #222;
+      box-sizing: border-box;
+    }
+    .right {
+      width: 60%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .right-top, .right-bottom {
+      height: 50%;
+      border-bottom: 2px solid #222;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .right-bottom {
+      border-bottom: none;
+    }
+    .chart-label {
+      position: absolute;
+      top: 10px;
+      left: 15px;
+      z-index: 99;
+      font-size: 17px;
+      font-weight: bold;
+      background: rgba(24,26,32,0.7);
+      padding: 5px 15px;
+      border-radius: 8px;
+      color: #fff;
+      pointer-events: none;
+    }
+    .watchlist-container {
+      background: #222;
+      padding: 18px 12px 12px 12px;
+      height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-bottom: 2px solid #333;
+    }
+    .watchlist-controls {
+      margin-bottom: 10px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+    }
+    .watchlist-controls button, .auto-btn {
+      background: #181a20;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 5px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 0 2px;
+      transition: background 0.2s;
+    }
+    .watchlist-controls button:hover, .auto-btn:hover {
+      background: #333;
+    }
+    .auto-btn {
+      margin-top: 10px;
+      width: 100%;
+    }
+    .watchlist {
+      overflow-y: auto;
+      width: 100%;
+      height: 120px;
+      background: #181a20;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-size: 15px;
+      color: #fff;
+      padding: 4px 0;
+    }
+    .watchlist-item {
+      padding: 3px 10px;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-bottom: 2px;
+      transition: background 0.2s;
+    }
+    .watchlist-item.selected {
+      background: #0074d9;
+      color: #fff;
+      font-weight: bold;
+    }
+    .widget-frame {
+      flex: 1 1 auto;
+      position: relative;
+      min-height: 0;
+      height: calc(100% - 210px);
+    }
+    .tradingview-widget-copyright {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left window -->
+    <div class="left">
+      <div class="watchlist-container">
+        <div class="watchlist-controls">
+          <button id="upBtn">&#9650; Up</button>
+          <button id="downBtn">&#9660; Down</button>
+        </div>
+        <div class="watchlist" id="watchlist"></div>
+        <button class="auto-btn" id="autoBtn">Auto Change Symbol (7s)</button>
+      </div>
+      <div class="widget-frame" id="chart_1h_frame">
+        <span class="chart-label">1H</span>
+      </div>
+    </div>
+    <!-- Right windows -->
+    <div class="right">
+      <div class="right-top widget-frame" id="chart_1d_frame">
+        <span class="chart-label">1D</span>
+      </div>
+      <div class="right-bottom widget-frame" id="chart_1w_frame">
+        <span class="chart-label">1W</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Watchlist symbols
+    const watchlist = [
+      { name: "AUDCAD", symbol: "FX:AUDCAD" },
+      { name: "AUDCHF", symbol: "FX:AUDCHF" },
+      { name: "AUDJPY", symbol: "FX:AUDJPY" },
+      { name: "AUDNZD", symbol: "FX:AUDNZD" },
+      { name: "CADCHF", symbol: "FX:CADCHF" },
+      { name: "CADJPY", symbol: "FX:CADJPY" },
+      { name: "CHFJPY", symbol: "FX:CHFJPY" },
+      { name: "EURAUD", symbol: "FX:EURAUD" },
+      { name: "EURCAD", symbol: "FX:EURCAD" },
+      { name: "EURCHF", symbol: "FX:EURCHF" },
+      { name: "EURGBP", symbol: "FX:EURGBP" },
+      { name: "EURJPY", symbol: "FX:EURJPY" },
+      { name: "EURNZD", symbol: "FX:EURNZD" },
+      { name: "EURUSD", symbol: "FX:EURUSD" },
+      { name: "GBPAUD", symbol: "FX:GBPAUD" },
+      { name: "GBPCAD", symbol: "FX:GBPCAD" },
+      { name: "GBPCHF", symbol: "FX:GBPCHF" },
+      { name: "GBPJPY", symbol: "FX:GBPJPY" },
+      { name: "GBPNZD", symbol: "FX:GBPNZD" },
+      { name: "GBPUSD", symbol: "FX:GBPUSD" },
+      { name: "NZDCAD", symbol: "FX:NZDCAD" },
+      { name: "NZDCHF", symbol: "FX:NZDCHF" },
+      { name: "NZDUSD", symbol: "FX:NZDUSD" },
+      { name: "USDCAD", symbol: "FX:USDCAD" },
+      { name: "USDCNH", symbol: "FX:USDCNH" },
+      { name: "USDJPY", symbol: "FX:USDJPY" },
+      { name: "USDMXN", symbol: "FX:USDMXN" },
+      { name: "USDZAR", symbol: "FX:USDZAR" },
+      { name: "USDCOP", symbol: "FX:USDCOP" },
+      { name: "NDX", symbol: "OANDA:NDXUSD" },
+      { name: "SPX", symbol: "OANDA:SPXUSD" },
+      { name: "USOIL", symbol: "TVC:USOIL" },
+      { name: "DXY", symbol: "TVC:DXY" },
+      { name: "XAUUSD", symbol: "OANDA:XAUUSD" }
+    ];
+
+    let selectedIndex = 13; // Default: EURUSD
+    let autoInterval = null;
+
+    function renderWatchlist() {
+      const wl = document.getElementById('watchlist');
+      wl.innerHTML = '';
+      watchlist.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'watchlist-item' + (i === selectedIndex ? ' selected' : '');
+        div.textContent = item.name;
+        div.onclick = () => {
+          selectedIndex = i;
+          updateAllCharts();
+          renderWatchlist();
+        };
+        wl.appendChild(div);
+      });
+      // Scroll to selected
+      const selectedItem = wl.querySelector('.selected');
+      if (selectedItem) {
+        selectedItem.scrollIntoView({ block: 'center' });
+      }
+    }
+
+    function getWidgetConfig(symbol, interval) {
+      return {
+        allow_symbol_change: false,
+        calendar: false,
+        details: false,
+        hide_side_toolbar: true,
+        hide_top_toolbar: false,
+        hide_legend: false,
+        hide_volume: false,
+        hotlist: false,
+        interval: interval,
+        locale: 'en',
+        save_image: true,
+        style: '1',
+        symbol: symbol,
+        theme: 'dark',
+        timezone: 'Etc/UTC',
+        backgroundColor: '#181a20',
+        gridColor: 'rgba(46,46,46,0.06)',
+        watchlist: watchlist.map(x => x.symbol),
+        withdateranges: true,
+        compareSymbols: [],
+        show_popup_button: true,
+        popup_height: "650",
+        popup_width: "1000",
+        studies: [
+          "STD;Bollinger_Bands",
+          "STD;WMA"
+        ],
+        autosize: true
+      };
+    }
+
+    function loadWidget(targetId, symbol, interval) {
+      const frame = document.getElementById(targetId);
+      // Remove previous widget
+      frame.querySelectorAll('.tradingview-widget-container').forEach(e => e.remove());
+      // Create container
+      const container = document.createElement('div');
+      container.className = 'tradingview-widget-container';
+      container.style.height = "100%";
+      container.style.width = "100%";
+      // Widget inner div
+      const widgetDiv = document.createElement('div');
+      widgetDiv.className = 'tradingview-widget-container__widget';
+      widgetDiv.style.height = "100%";
+      widgetDiv.style.width = "100%";
+      container.appendChild(widgetDiv);
+      frame.appendChild(container);
+
+      // Inject widget script
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+      script.async = true;
+      script.innerHTML = JSON.stringify(getWidgetConfig(symbol, interval));
+      container.appendChild(script);
+    }
+
+    function updateAllCharts() {
+      const symbol = watchlist[selectedIndex].symbol;
+      loadWidget('chart_1h_frame', symbol, '60');     // 1H = 60 min interval
+      loadWidget('chart_1d_frame', symbol, 'D');      // 1D
+      loadWidget('chart_1w_frame', symbol, 'W');      // 1W
+    }
+
+    document.getElementById('upBtn').onclick = () => {
+      selectedIndex = (selectedIndex - 1 + watchlist.length) % watchlist.length;
+      updateAllCharts();
+      renderWatchlist();
+    };
+    document.getElementById('downBtn').onclick = () => {
+      selectedIndex = (selectedIndex + 1) % watchlist.length;
+      updateAllCharts();
+      renderWatchlist();
+    };
+
+    document.getElementById('autoBtn').onclick = function() {
+      if (autoInterval) {
+        clearInterval(autoInterval);
+        autoInterval = null;
+        this.textContent = 'Auto Change Symbol (7s)';
+      } else {
+        autoInterval = setInterval(() => {
+          selectedIndex = (selectedIndex + 1) % watchlist.length;
+          updateAllCharts();
+          renderWatchlist();
+        }, 7000);
+        this.textContent = 'Stop Auto Change';
+      }
+    };
+
+    renderWatchlist();
+    updateAllCharts();
+  </script>
+</body>
+</html>
